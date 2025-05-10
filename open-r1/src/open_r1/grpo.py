@@ -90,6 +90,14 @@ def main(script_args, training_args, model_args):
     # Get reward functions from the registry
     reward_funcs = get_reward_funcs(script_args)
 
+    # 数据集格式示例
+    #   {
+    #     "problem": "The operation $\\otimes$ is defined for all nonzero numbers by $a \\otimes b = \\frac{a^{2}}{b}$. Determine $[(1 \\otimes 2) \\otimes 3] - [1 \\otimes (2 \\otimes 3)]$.",
+    #     "solution": "1. **Apply the operation $\\otimes$ to the innermost parentheses first:**\n   \\[\n   (1 \\otimes 2) \\otimes 3 = \\left(\\frac{1^2}{2}\\right) \\otimes 3 = \\frac{1}{2} \\otimes 3\n   \\]\n   \\[\n   1 \\otimes (2 \\otimes 3) = 1 \\otimes \\left(\\frac{2^2}{3}\\right) = 1 \\otimes \\frac{4}{3}\n   \\]\n\n2. **Calculate each part using the definition of $\\otimes$:**\n   \\[\n   \\frac{1}{2} \\otimes 3 = \\frac{\\left(\\frac{1}{2}\\right)^2}{3} = \\frac{\\frac{1}{4}}{3} = \\frac{1}{12}\n   \\]\n   \\[\n   1 \\otimes \\frac{4}{3} = \\frac{1^2}{\\frac{4}{3}} = \\frac{1}{\\frac{4}{3}} = \\frac{3}{4}\n   \\]\n\n3. **Subtract the two results:**\n   \\[\n   \\left(\\frac{1}{12}\\right) - \\left(\\frac{3}{4}\\right) = \\frac{1}{12} - \\frac{9}{12} = -\\frac{8}{12} = -\\frac{2}{3}\n   \\]\n\n4. **Conclude with the final answer:**\n   \\[\n   \\boxed{A}\n   \\]",
+    #     "answer": "-\\frac{2}{3}",
+    #     "difficulty": 1.0
+    #   },
+
     # Format into conversation
     def make_conversation(
         example, prompt_column: str = script_args.dataset_prompt_column
@@ -105,7 +113,12 @@ def main(script_args, training_args, model_args):
             )
 
         prompt.append({"role": "user", "content": example[prompt_column]})
-        return {"prompt": prompt}
+
+        # 保留solution字段
+        return {
+            "prompt": prompt,
+            "solution": example.get("solution", ""),  # 保留solution字段
+        }
 
     dataset = dataset.map(make_conversation)
 
