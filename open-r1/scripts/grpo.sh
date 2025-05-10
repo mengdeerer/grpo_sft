@@ -1,4 +1,4 @@
-iCUDA_VISIBLE_DEVICES=0 trl vllm-serve --model /mnt/sda/xjl/models/DeepSeek-R1-Distill-Qwen-1.5B
+CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model /mnt/sda/xjl/models/DeepSeek-R1-Distill-Qwen-1.5B
 
 
 
