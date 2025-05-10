@@ -555,7 +555,7 @@ class GRPOTrainer(Trainer):
         )  # = |o_i| in the GRPO paper
         self.num_generations = args.num_generations  # = G in the GRPO paper
         # 添加数目
-        self.num_completions = args.num_generations + 1
+        self.actual_g=self.num_generations-1
         self.temperature = args.temperature
         self.top_p = args.top_p
         self.top_k = args.top_k
@@ -857,8 +857,8 @@ class GRPOTrainer(Trainer):
         return RepeatSampler(
             data_source=self.train_dataset,
             # 每个prompt后面跟着一个solution,所以每个prompt生成num_generations+1个completion
-            mini_repeat_count=self.completions,
-            batch_size=effective_batch_size // (self.completions),
+            mini_repeat_count=self.num_generations,
+            batch_size=effective_batch_size // (self.num_generations),
             repeat_count=self.num_iterations * self.args.gradient_accumulation_steps,
             shuffle=self.shuffle_dataset,
             seed=self.args.seed,
@@ -868,7 +868,7 @@ class GRPOTrainer(Trainer):
         # See _get_train_sampler for an explanation of the sampler.
         return RepeatSampler(
             data_source=eval_dataset,
-            mini_repeat_count=self.num_generations,
+            mini_repeat_count=self.actual_g,
             seed=self.args.seed,
         )
 
@@ -1046,7 +1046,8 @@ class GRPOTrainer(Trainer):
 
         # 获取数据集中回答
         dataset_solutions = [x["solution"] for x in inputs]
-
+        # print(len(prompts))
+        # print(len(dataset_solutions))
         prompt_inputs = self.processing_class(
             text=prompts_text,
             return_tensors="pt",
@@ -1059,6 +1060,8 @@ class GRPOTrainer(Trainer):
             prompt_inputs["input_ids"],
             prompt_inputs["attention_mask"],
         )
+        print("prompt")
+        print(prompt_ids.shape)
 
         if self.max_prompt_length is not None:
             prompt_ids = prompt_ids[:, -self.max_prompt_length :]
@@ -1073,17 +1076,26 @@ class GRPOTrainer(Trainer):
 
             # Generate completions using vLLM: gather all prompts and use them in a single call in the main process
             all_prompts_text = gather_object(prompts_text)
+            print("all_prompts")
+            print(len(all_prompts_text))
+            # print("inini")
+            # print(len(all_prompts_text[0]))
+            # print(len(all_prompts_text[1]))        
+            # print(len(all_prompts_text[2]))
+            # print(len(all_prompts_text[3]))
+            # print(len(all_prompts_text[4]))
+            # print(len(all_prompts_text[5]))
             if self.accelerator.is_main_process:
                 # Since 'prompts' contains 'num_generations' duplicates, we first take unique prompts, and generate
                 # num_generations outputs for each one. This is faster than generating outputs for each duplicate
                 # prompt individually.
                 # 每个prompt后面跟着一个solution,所以每个prompt生成num_generations个completion，
                 # 但是最后一个completion是solution，所以每个prompt生成num_generations+1 -1个completion
-                ordered_set_of_prompts = all_prompts_text[:: self.completions]
+                ordered_set_of_prompts = all_prompts_text[:: self.num_generations]
                 with profiling_context(self, "vLLM.generate"):
                     completion_ids = self.vllm_client.generate(
                         prompts=ordered_set_of_prompts,
-                        n=self.num_generations,
+                        n=self.actual_g,
                         repetition_penalty=self.repetition_penalty,
                         temperature=self.temperature,
                         top_p=self.top_p,
@@ -1092,6 +1104,11 @@ class GRPOTrainer(Trainer):
                         max_tokens=self.max_completion_length,
                         guided_decoding_regex=self.guided_decoding_regex,
                     )
+                print("#########################")
+                dim1=len(completion_ids)
+                dim2=len(completion_ids[0])
+                print(dim1,dim2)
+
                 # 处理solution输入
                 solution_inputs = self.processing_class(
                     text=dataset_solutions,
@@ -1102,60 +1119,17 @@ class GRPOTrainer(Trainer):
                 )
                 solution_inputs = super()._prepare_inputs(solution_inputs)
                 solution_ids = solution_inputs["input_ids"]
-                solution_mask = solution_inputs["attention_mask"]
-
-                # 确保completion_ids和solution_ids长度一致
-                max_len = max(completion_ids.size(1), solution_ids.size(1))
-
-                # 如果长度不一致，进行padding
-                if completion_ids.size(1) < max_len:
-                    padding = torch.full(
-                        (completion_ids.size(0), max_len - completion_ids.size(1)),
-                        self.processing_class.pad_token_id,
-                        dtype=completion_ids.dtype,
-                        device=device,
-                    )
-                    completion_ids = torch.cat([completion_ids, padding], dim=1)
-                    completion_mask = torch.cat(
-                        [
-                            completion_mask,
-                            torch.zeros(
-                                (completion_mask.size(0), max_len - completion_mask.size(1)),
-                                dtype=completion_mask.dtype,
-                                device=device,
-                            ),
-                        ],
-                        dim=1,
-                    )
-
-                if solution_ids.size(1) < max_len:
-                    padding = torch.full(
-                        (solution_ids.size(0), max_len - solution_ids.size(1)),
-                        self.processing_class.pad_token_id,
-                        dtype=solution_ids.dtype,
-                        device=device,
-                    )
-                    solution_ids = torch.cat([solution_ids, padding], dim=1)
-                    solution_mask = torch.cat(
-                        [
-                            solution_mask,
-                            torch.zeros(
-                                (solution_mask.size(0), max_len - solution_mask.size(1)),
-                                dtype=solution_mask.dtype,
-                                device=device,
-                            ),
-                        ],
-                        dim=1,
-                    )
-
-                #生成的completion形状为[batch_size, num_generations, seq_len]
-                # 将生成的completions和solution拼接在一起
-                # 每个prompt生成num_generations-1个completion,然后添加一个solution
-                completion_ids = completion_ids.view(-1, self.num_generations, completion_ids.size(1))
-                solution_ids = solution_ids.unsqueeze(1)  # [batch_size, 1, seq_len]
-                completion_ids = torch.cat([completion_ids, solution_ids], dim=1)  # [batch_size, num_generations, seq_len]
-                completion_ids = completion_ids.view(-1, completion_ids.size(-1))  # [batch_size*num_generations, seq_len]
-
+                print(solution_ids.shape)
+                solution_ids_list=solution_ids.tolist()
+                print("solution") 
+                print(len(solution_ids_list))
+                new_completion_ids=[]
+                for i in range(0,len(completion_ids),self.actual_g):
+                    temp_completions=completion_ids[i:i+self.actual_g]
+                    solution=solution_ids_list[i//self.actual_g]
+                    new_completion_ids.extend(temp_completions)
+                    new_completion_ids.append(solution) 
+                completion_ids=new_completion_ids
                 # # 同样处理mask
                 # completion_mask = completion_mask.view(-1, self.num_generations, completion_mask.size(1))
                 # solution_mask = solution_mask.unsqueeze(1)
@@ -1165,8 +1139,6 @@ class GRPOTrainer(Trainer):
                 completion_ids = [None] * len(all_prompts_text)
             # Broadcast the completions from the main process to all processes, ensuring each process receives its
             # corresponding slice.
-
-            
 
             completion_ids = broadcast_object_list(completion_ids, from_process=0)
             process_slice = slice(
@@ -1280,7 +1252,9 @@ class GRPOTrainer(Trainer):
                 )
         else:
             completions = completions_text
-
+        print("##############################")
+        print(completions)
+        print("##############################")
         rewards_per_func = torch.zeros(
             len(prompts), len(self.reward_funcs), device=device
         )
