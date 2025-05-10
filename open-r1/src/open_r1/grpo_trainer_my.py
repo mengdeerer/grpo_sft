@@ -1092,7 +1092,7 @@ class GRPOTrainer(Trainer):
                 # 每个prompt后面跟着一个solution,所以每个prompt生成num_generations个completion，
                 # 但是最后一个completion是solution，所以每个prompt生成num_generations+1 -1个completion
                 ordered_set_of_prompts = all_prompts_text[:: self.num_generations]
-                num_g=self.actual_g if self.model.training else self.num_generations
+                num_g = self.actual_g if self.model.training else self.num_generations
                 with profiling_context(self, "vLLM.generate"):
                     completion_ids = self.vllm_client.generate(
                         prompts=ordered_set_of_prompts,
@@ -1352,6 +1352,13 @@ class GRPOTrainer(Trainer):
         advantages = rewards - mean_grouped_rewards
         if self.scale_rewards:
             advantages = advantages / (std_grouped_rewards + 1e-4)
+
+        # 修改solution的优势值为对应prompt的三个completion中的最大值
+        if self.model.training:
+            advantages = advantages.view(-1, self.num_generations)
+            max_advantages = advantages[:, :self.actual_g].max(dim=1)[0]
+            advantages[:, -1] = max_advantages
+            advantages = advantages.view(-1)
 
         # Slice to keep only the local part of the data
         process_slice = slice(

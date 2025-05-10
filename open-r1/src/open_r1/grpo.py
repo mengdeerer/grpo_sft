@@ -23,7 +23,7 @@ from transformers import set_seed
 from transformers.trainer_utils import get_last_checkpoint
 
 from open_r1.configs import GRPOConfig, GRPOScriptArguments
-from open_r1.rewards import get_reward_funcs
+from open_r1.rewards_my import get_reward_funcs
 from open_r1.utils import get_model, get_tokenizer
 from open_r1.utils.callbacks import get_callbacks
 from open_r1.utils.wandb_logging import init_wandb_training
@@ -121,6 +121,8 @@ def main(script_args, training_args, model_args):
         }
 
     dataset = dataset.map(make_conversation)
+    print("*"*100)
+    print(dataset.column_names)
 
     for split in dataset:
         if "messages" in dataset[split].column_names:
