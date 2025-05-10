@@ -1092,81 +1092,81 @@ class GRPOTrainer(Trainer):
                         max_tokens=self.max_completion_length,
                         guided_decoding_regex=self.guided_decoding_regex,
                     )
+                # 处理solution输入
+                solution_inputs = self.processing_class(
+                    text=dataset_solutions,
+                    return_tensors="pt",
+                    padding=True,
+                    padding_side="left",
+                    add_special_tokens=False,
+                )
+                solution_inputs = super()._prepare_inputs(solution_inputs)
+                solution_ids = solution_inputs["input_ids"]
+                solution_mask = solution_inputs["attention_mask"]
+
+                # 确保completion_ids和solution_ids长度一致
+                max_len = max(completion_ids.size(1), solution_ids.size(1))
+
+                # 如果长度不一致，进行padding
+                if completion_ids.size(1) < max_len:
+                    padding = torch.full(
+                        (completion_ids.size(0), max_len - completion_ids.size(1)),
+                        self.processing_class.pad_token_id,
+                        dtype=completion_ids.dtype,
+                        device=device,
+                    )
+                    completion_ids = torch.cat([completion_ids, padding], dim=1)
+                    completion_mask = torch.cat(
+                        [
+                            completion_mask,
+                            torch.zeros(
+                                (completion_mask.size(0), max_len - completion_mask.size(1)),
+                                dtype=completion_mask.dtype,
+                                device=device,
+                            ),
+                        ],
+                        dim=1,
+                    )
+
+                if solution_ids.size(1) < max_len:
+                    padding = torch.full(
+                        (solution_ids.size(0), max_len - solution_ids.size(1)),
+                        self.processing_class.pad_token_id,
+                        dtype=solution_ids.dtype,
+                        device=device,
+                    )
+                    solution_ids = torch.cat([solution_ids, padding], dim=1)
+                    solution_mask = torch.cat(
+                        [
+                            solution_mask,
+                            torch.zeros(
+                                (solution_mask.size(0), max_len - solution_mask.size(1)),
+                                dtype=solution_mask.dtype,
+                                device=device,
+                            ),
+                        ],
+                        dim=1,
+                    )
+
+                #生成的completion形状为[batch_size, num_generations, seq_len]
+                # 将生成的completions和solution拼接在一起
+                # 每个prompt生成num_generations-1个completion,然后添加一个solution
+                completion_ids = completion_ids.view(-1, self.num_generations, completion_ids.size(1))
+                solution_ids = solution_ids.unsqueeze(1)  # [batch_size, 1, seq_len]
+                completion_ids = torch.cat([completion_ids, solution_ids], dim=1)  # [batch_size, num_generations, seq_len]
+                completion_ids = completion_ids.view(-1, completion_ids.size(-1))  # [batch_size*num_generations, seq_len]
+
+                # # 同样处理mask
+                # completion_mask = completion_mask.view(-1, self.num_generations, completion_mask.size(1))
+                # solution_mask = solution_mask.unsqueeze(1)
+                # completion_mask = torch.cat([completion_mask, solution_mask], dim=1)
+                # completion_mask = completion_mask.view(-1, completion_mask.size(-1))
             else:
                 completion_ids = [None] * len(all_prompts_text)
             # Broadcast the completions from the main process to all processes, ensuring each process receives its
             # corresponding slice.
 
-            #添加solution
-            # 处理solution输入
-            solution_inputs = self.processing_class(
-                text=dataset_solutions,
-                return_tensors="pt",
-                padding=True,
-                padding_side="left",
-                add_special_tokens=False,
-            )
-            solution_inputs = super()._prepare_inputs(solution_inputs)
-            solution_ids = solution_inputs["input_ids"]
-            solution_mask = solution_inputs["attention_mask"]
-
-            # 确保completion_ids和solution_ids长度一致
-            max_len = max(completion_ids.size(1), solution_ids.size(1))
-
-            # 如果长度不一致，进行padding
-            if completion_ids.size(1) < max_len:
-                padding = torch.full(
-                    (completion_ids.size(0), max_len - completion_ids.size(1)),
-                    self.processing_class.pad_token_id,
-                    dtype=completion_ids.dtype,
-                    device=device,
-                )
-                completion_ids = torch.cat([completion_ids, padding], dim=1)
-                completion_mask = torch.cat(
-                    [
-                        completion_mask,
-                        torch.zeros(
-                            (completion_mask.size(0), max_len - completion_mask.size(1)),
-                            dtype=completion_mask.dtype,
-                            device=device,
-                        ),
-                    ],
-                    dim=1,
-                )
-
-            if solution_ids.size(1) < max_len:
-                padding = torch.full(
-                    (solution_ids.size(0), max_len - solution_ids.size(1)),
-                    self.processing_class.pad_token_id,
-                    dtype=solution_ids.dtype,
-                    device=device,
-                )
-                solution_ids = torch.cat([solution_ids, padding], dim=1)
-                solution_mask = torch.cat(
-                    [
-                        solution_mask,
-                        torch.zeros(
-                            (solution_mask.size(0), max_len - solution_mask.size(1)),
-                            dtype=solution_mask.dtype,
-                            device=device,
-                        ),
-                    ],
-                    dim=1,
-                )
-
-            #生成的completion形状为[batch_size, num_generations, seq_len]
-            # 将生成的completions和solution拼接在一起
-            # 每个prompt生成num_generations-1个completion,然后添加一个solution
-            completion_ids = completion_ids.view(-1, self.num_generations, completion_ids.size(1))
-            solution_ids = solution_ids.unsqueeze(1)  # [batch_size, 1, seq_len]
-            completion_ids = torch.cat([completion_ids, solution_ids], dim=1)  # [batch_size, num_generations, seq_len]
-            completion_ids = completion_ids.view(-1, completion_ids.size(-1))  # [batch_size*num_generations, seq_len]
-
-            # 同样处理mask
-            completion_mask = completion_mask.view(-1, self.num_generations, completion_mask.size(1))
-            solution_mask = solution_mask.unsqueeze(1)
-            completion_mask = torch.cat([completion_mask, solution_mask], dim=1)
-            completion_mask = completion_mask.view(-1, completion_mask.size(-1))
+            
 
             completion_ids = broadcast_object_list(completion_ids, from_process=0)
             process_slice = slice(
