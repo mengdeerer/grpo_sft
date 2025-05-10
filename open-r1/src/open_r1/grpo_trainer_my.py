@@ -555,7 +555,7 @@ class GRPOTrainer(Trainer):
         )  # = |o_i| in the GRPO paper
         self.num_generations = args.num_generations  # = G in the GRPO paper
         # 添加数目
-        self.actual_g=self.num_generations-1
+        self.actual_g = self.num_generations - 1
         self.temperature = args.temperature
         self.top_p = args.top_p
         self.top_k = args.top_k
@@ -1080,7 +1080,7 @@ class GRPOTrainer(Trainer):
             print(len(all_prompts_text))
             # print("inini")
             # print(len(all_prompts_text[0]))
-            # print(len(all_prompts_text[1]))        
+            # print(len(all_prompts_text[1]))
             # print(len(all_prompts_text[2]))
             # print(len(all_prompts_text[3]))
             # print(len(all_prompts_text[4]))
@@ -1092,10 +1092,11 @@ class GRPOTrainer(Trainer):
                 # 每个prompt后面跟着一个solution,所以每个prompt生成num_generations个completion，
                 # 但是最后一个completion是solution，所以每个prompt生成num_generations+1 -1个completion
                 ordered_set_of_prompts = all_prompts_text[:: self.num_generations]
+                num_g=self.actual_g if self.model.training else self.num_generations
                 with profiling_context(self, "vLLM.generate"):
                     completion_ids = self.vllm_client.generate(
                         prompts=ordered_set_of_prompts,
-                        n=self.actual_g,
+                        n=num_g,
                         repetition_penalty=self.repetition_penalty,
                         temperature=self.temperature,
                         top_p=self.top_p,
@@ -1104,32 +1105,33 @@ class GRPOTrainer(Trainer):
                         max_tokens=self.max_completion_length,
                         guided_decoding_regex=self.guided_decoding_regex,
                     )
-                print("#########################")
-                dim1=len(completion_ids)
-                dim2=len(completion_ids[0])
-                print(dim1,dim2)
+                # print("#########################")
+                # dim1 = len(completion_ids)
+                # dim2 = len(completion_ids[0])
+                # print(dim1, dim2)
 
                 # 处理solution输入
-                solution_inputs = self.processing_class(
-                    text=dataset_solutions,
-                    return_tensors="pt",
-                    padding=True,
-                    padding_side="left",
-                    add_special_tokens=False,
-                )
-                solution_inputs = super()._prepare_inputs(solution_inputs)
-                solution_ids = solution_inputs["input_ids"]
-                print(solution_ids.shape)
-                solution_ids_list=solution_ids.tolist()
-                print("solution") 
-                print(len(solution_ids_list))
-                new_completion_ids=[]
-                for i in range(0,len(completion_ids),self.actual_g):
-                    temp_completions=completion_ids[i:i+self.actual_g]
-                    solution=solution_ids_list[i//self.actual_g]
-                    new_completion_ids.extend(temp_completions)
-                    new_completion_ids.append(solution) 
-                completion_ids=new_completion_ids
+                if self.model.training:
+                    solution_inputs = self.processing_class(
+                        text=dataset_solutions,
+                        return_tensors="pt",
+                        padding=True,
+                        padding_side="left",
+                        add_special_tokens=False,
+                    )
+                    solution_inputs = super()._prepare_inputs(solution_inputs)
+                    solution_ids = solution_inputs["input_ids"]
+                    print(solution_ids.shape)
+                    solution_ids_list = solution_ids.tolist()
+                    print("solution")
+                    print(len(solution_ids_list))
+                    new_completion_ids = []
+                    for i in range(0, len(completion_ids), self.actual_g):
+                        temp_completions = completion_ids[i : i + self.actual_g]
+                        solution = solution_ids_list[i // self.actual_g]
+                        new_completion_ids.extend(temp_completions)
+                        new_completion_ids.append(solution)
+                    completion_ids = new_completion_ids
                 # # 同样处理mask
                 # completion_mask = completion_mask.view(-1, self.num_generations, completion_mask.size(1))
                 # solution_mask = solution_mask.unsqueeze(1)
@@ -1252,9 +1254,9 @@ class GRPOTrainer(Trainer):
                 )
         else:
             completions = completions_text
-        print("##############################")
-        print(completions)
-        print("##############################")
+        # print("##############################")
+        # print(completions)
+
         rewards_per_func = torch.zeros(
             len(prompts), len(self.reward_funcs), device=device
         )
