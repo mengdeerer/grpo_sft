@@ -1043,9 +1043,12 @@ class GRPOTrainer(Trainer):
             maybe_apply_chat_template(example, self.processing_class)["prompt"]
             for example in inputs
         ]
-
+        # print("#"*100)
+        # print(prompts)
         # 获取数据集中回答
         dataset_solutions = [x["solution"] for x in inputs]
+        # print("#"*100)
+        # print(dataset_solutions)
         # print(len(prompts))
         # print(len(dataset_solutions))
         prompt_inputs = self.processing_class(
@@ -1060,8 +1063,7 @@ class GRPOTrainer(Trainer):
             prompt_inputs["input_ids"],
             prompt_inputs["attention_mask"],
         )
-        print("prompt")
-        print(prompt_ids.shape)
+
 
         if self.max_prompt_length is not None:
             prompt_ids = prompt_ids[:, -self.max_prompt_length :]
@@ -1078,6 +1080,9 @@ class GRPOTrainer(Trainer):
             all_prompts_text = gather_object(prompts_text)
             print("all_prompts")
             print(len(all_prompts_text))
+            #每个都是单独的四个，所以要合一起
+            all_solutions=gather_object(dataset_solutions)
+            # print(all_solutions)
             # print("inini")
             # print(len(all_prompts_text[0]))
             # print(len(all_prompts_text[1]))
@@ -1092,6 +1097,7 @@ class GRPOTrainer(Trainer):
                 # 每个prompt后面跟着一个solution,所以每个prompt生成num_generations个completion，
                 # 但是最后一个completion是solution，所以每个prompt生成num_generations+1 -1个completion
                 ordered_set_of_prompts = all_prompts_text[:: self.num_generations]
+                ordered_solutions=all_solutions[::self.num_generations]
                 num_g = self.actual_g if self.model.training else self.num_generations
                 with profiling_context(self, "vLLM.generate"):
                     completion_ids = self.vllm_client.generate(
@@ -1113,7 +1119,7 @@ class GRPOTrainer(Trainer):
                 # 处理solution输入
                 if self.model.training:
                     solution_inputs = self.processing_class(
-                        text=dataset_solutions,
+                        text=ordered_solutions,
                         return_tensors="pt",
                         padding=True,
                         padding_side="left",
@@ -1132,6 +1138,9 @@ class GRPOTrainer(Trainer):
                         new_completion_ids.extend(temp_completions)
                         new_completion_ids.append(solution)
                     completion_ids = new_completion_ids
+                    completions_text = self.processing_class.batch_decode(
+                        completion_ids, skip_special_tokens=True
+                    )
                 # # 同样处理mask
                 # completion_mask = completion_mask.view(-1, self.num_generations, completion_mask.size(1))
                 # solution_mask = solution_mask.unsqueeze(1)
@@ -1257,6 +1266,7 @@ class GRPOTrainer(Trainer):
         # print("##############################")
         # print(completions)
 
+        # prinst()
         rewards_per_func = torch.zeros(
             len(prompts), len(self.reward_funcs), device=device
         )
@@ -1356,7 +1366,7 @@ class GRPOTrainer(Trainer):
         # 修改solution的优势值为对应prompt的三个completion中的最大值
         if self.model.training:
             advantages = advantages.view(-1, self.num_generations)
-            max_advantages = advantages[:, :self.actual_g].max(dim=1)[0]
+            max_advantages = advantages[:, : self.actual_g].max(dim=1)[0]
             advantages[:, -1] = max_advantages
             advantages = advantages.view(-1)
 

@@ -27,8 +27,7 @@ from math_verify import LatexExtractionConfig, parse, verify
 
 from .utils import is_e2b_available
 from .utils.ioi import SubtaskResult, add_includes, get_piston_client_from_env, score_subtask
-
-
+from .rewards_ref import math_accuracy_reward,math_format_reward
 if is_e2b_available():
     from dotenv import load_dotenv
     from e2b_code_interpreter import AsyncSandbox
@@ -91,7 +90,6 @@ def format_reward(completions, **kwargs):
     completion_contents = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, content, re.DOTALL | re.MULTILINE) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
-
 
 def tag_count_reward(completions, **kwargs) -> list[float]:
     """Reward function that checks if we produce the desired number of think and answer tags associated with `format_reward()`.
@@ -586,8 +584,10 @@ async def run_script(script: str, language: str, semaphore: asyncio.Semaphore) -
 
 def get_reward_funcs(script_args) -> list[Callable]:
     REWARD_FUNCS_REGISTRY = {
-        "accuracy": accuracy_reward,
-        "format": format_reward,
+        # "accuracy": accuracy_reward,
+        "accuracy": math_accuracy_reward,
+        # "format": format_reward,
+        "format": math_format_reward,
         "reasoning_steps": reasoning_steps_reward,
         "cosine": get_cosine_scaled_reward(
             min_value_wrong=script_args.cosine_min_value_wrong,
