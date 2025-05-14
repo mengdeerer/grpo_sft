@@ -40,7 +40,7 @@ def evaluate_math_answer(
                 processed_ground_truths.append(processed_truth)
         else:
             processed_ground_truths.append(truth)
-    # print(processed_ground_truths)
+    print(processed_ground_truths)
     if not processed_ground_truths:
         return False
 
@@ -118,6 +118,6 @@ if __name__ == "__main__":
     ]
     test_solution = ["The answer is $\\boxed{\\textbf{(B)}\\ 25}$"]
     result = math_accuracy_reward(test_completion, test_solution)
-    result2 = math_format_reward(test_completion)
+    # result2 = math_format_reward(test_completion)
     print(f"Test result: {result}")
-    print(f"Test result2: {result2}")
+    # print(f"Test result2: {result2}")

@@ -131,6 +131,17 @@ def _strip_string(string):
     string = string.replace("\\%", "")
     string = string.replace("\%", "")
 
+    # # 处理 textbf 和选项标记
+    # # 匹配形如 \textbf{(X)} 的模式，其中 X 是任意字母
+    # string = re.sub(r"\\textbf\{\([A-Z]\)\}", "", string)
+    # # 匹配形如 (X) 的模式，其中 X 是任意字母
+    # string = re.sub(r"\([A-Z]\)", "", string)
+    # # 去除 textbf 标记
+    # string = string.replace("\\textbf{", "")
+    # string = string.replace("\\textbf", "")
+    # # 去除多余的空格
+    # string = string.strip()
+
     # " 0." equivalent to " ." and "{0." equivalent to "{." Alternatively, add "0" if "." is the start of the string
     string = string.replace(" .", " 0.")
     string = string.replace("{.", "{0.")
@@ -417,7 +428,17 @@ def remove_boxed(s):
     try:
         assert s[: len(left)] == left
         assert s[-1] == "}"
-        return s[len(left) : -1]
+        s = s[len(left) : -1]
+        # 处理 textbf
+        if "\\textbf" in s:
+            # 使用正则表达式匹配并删除 \textbf{} 中的所有内容
+            s = re.sub(r"\\textbf\{[^}]*\}", "", s)
+            # 只删除 \textbf 后的 }
+            # s = re.sub(r"\\textbf\}", "", s)
+            # 删除剩余的 \
+            # s = s.replace("\\", "")
+            s = s.strip()
+        return s
     except:
         return None
 
