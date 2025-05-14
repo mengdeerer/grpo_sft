@@ -116,7 +116,7 @@ async def main():
     )
     parser.add_argument("--temperature", type=float, default=0.6)
     parser.add_argument("--top-p", type=float, default=0.95)
-    parser.add_argument("--max-tokens", type=int, default=16384)
+    parser.add_argument("--max-tokens", type=int, default=32768)
     parser.add_argument("--max-concurrent", type=int, default=1000)
     args = parser.parse_args()
 

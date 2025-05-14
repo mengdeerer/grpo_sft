@@ -180,8 +180,8 @@ RAY_ADDRESS="http://$head_node_ip:8265" ray job submit \
     -- vllm serve $MODEL \
     --tensor-parallel-size $SLURM_GPUS_PER_NODE \
     --pipeline-parallel-size $SLURM_JOB_NUM_NODES \
-    --gpu-memory-utilization=0.85 \
-    --max-model-len 16384 \
+    --gpu-memory-utilization=0.20 \
+    --max-model-len 32768 \
     --enable-chunked-prefill \
     --trust-remote-code \
     --distributed-executor-backend ray

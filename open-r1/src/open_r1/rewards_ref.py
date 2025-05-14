@@ -40,7 +40,7 @@ def evaluate_math_answer(
                 processed_ground_truths.append(processed_truth)
         else:
             processed_ground_truths.append(truth)
-
+    # print(processed_ground_truths)
     if not processed_ground_truths:
         return False
 
@@ -79,7 +79,7 @@ def math_accuracy_reward(
             continue
 
         is_correct = evaluate_math_answer(model_answer, sol)
-        rewards.append(2.0 if is_correct else 0.0)
+        rewards.append(1.5 if is_correct else 0.0)
 
     return rewards
 
@@ -112,11 +112,11 @@ if __name__ == "__main__":
     test_completion = [
         [
             {
-                "content": "To solve this problem, we need to determine the probability of correctly guessing the match between each celebrity and their corresponding baby picture.\n\n1. **Total Possible Matches**:\n   There are three celebrities and each has one corresponding baby picture. The task is to match each celebrity with their baby picture. The total number of ways to arrange three items (in this case, the baby pictures) is given by the factorial of the number of items. Thus, there are $3! = 3 \\times 2 \\times 1 = 6$ possible ways to arrange the baby pictures.\n\n2. **Correct Match**:\n   Only one of these arrangements will correctly match all celebrities with their baby pictures.\n\n3. **Probability Calculation**:\n   The probability of a correct match is the number of correct arrangements divided by the total number of possible arrangements. Since there is only one correct arrangement:\n   \\[\n   \\text{Probability} = \\frac{\\text{Number of correct arrangements}}{\\text{Total number of arrangements}} = \\frac{1}{6}\n   \\]\n\nThus, the probability that a reader guessing at random will match all three celebrities with their correct baby pictures is $\\boxed{\\frac{1}{6}}$."
+                "content": "To solve this problem, we need to determine the probability of correctly guessing the match between each celebrity and their corresponding baby picture.\n\n1. **Total Possible Matches**:\n   There are three celebrities and each has one corresponding baby picture. The task is to match each celebrity with their baby picture. The total number of ways to arrange three items (in this case, the baby pictures) is given by the factorial of the number of items. Thus, there are $3! = 3 \\times 2 \\times 1 = 6$ possible ways to arrange the baby pictures.\n\n2. **Correct Match**:\n   Only one of these arrangements will correctly match all celebrities with their baby pictures.\n\n3. **Probability Calculation**:\n   The probability of a correct match is the number of correct arrangements divided by the total number of possible arrangements. Since there is only one correct arrangement:\n   \\[\n   \\text{Probability} = \\frac{\\text{Number of correct arrangements}}{\\text{Total number of arrangements}} = \\frac{1}{6}\n   \\]\n\nThus, the probability that a reader guessing at random will match all three celebrities with their correct baby pictures is $\\boxed{25}$."
             }
         ]
     ]
-    test_solution = ["\\frac{1}{6}"]
+    test_solution = ["The answer is $\\boxed{\\textbf{(B)}\\ 25}$"]
     result = math_accuracy_reward(test_completion, test_solution)
     result2 = math_format_reward(test_completion)
     print(f"Test result: {result}")

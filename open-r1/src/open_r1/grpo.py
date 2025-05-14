@@ -23,7 +23,7 @@ from transformers import set_seed
 from transformers.trainer_utils import get_last_checkpoint
 
 from open_r1.configs import GRPOConfig, GRPOScriptArguments
-from open_r1.rewards_my import get_reward_funcs
+from open_r1.rewards import get_reward_funcs
 from open_r1.utils import get_model, get_tokenizer
 from open_r1.utils.callbacks import get_callbacks
 from open_r1.utils.wandb_logging import init_wandb_training
@@ -76,6 +76,10 @@ def main(script_args, training_args, model_args):
     # dataset = load_dataset(script_args.dataset_name, name=script_args.dataset_config)
     # new change
     dataset = load_dataset("json", data_files=script_args.dataset_name)
+    for split in dataset:
+        if "output" in dataset[split].column_names:
+            dataset[split] = dataset[split].rename_column("output", "solution")
+
     ################
     # Load tokenizer
     ################
