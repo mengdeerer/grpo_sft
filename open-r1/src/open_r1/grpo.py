@@ -77,8 +77,8 @@ def main(script_args, training_args, model_args):
     # new change
     dataset = load_dataset("json", data_files=script_args.dataset_name)
     for split in dataset:
-        if "output" in dataset[split].column_names:
-            dataset[split] = dataset[split].rename_column("output", "solution")
+        if "qwq_solution" in dataset[split].column_names:
+            dataset[split] = dataset[split].rename_column("qwq_solution", "solution")
 
     ################
     # Load tokenizer

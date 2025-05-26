@@ -1,6 +1,6 @@
 CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model /mnt/sda/xjl/models/DeepSeek-R1-Distill-Qwen-1.5B
 
-CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model /mnt/models/Qwen2.5-Math-1.5B
+CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model /mnt/models/Qwen2.5-1.5B-Instruct
 CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model /mnt/models/DeepSeek-R1-Distill-Qwen-1.5B
 
 CUDA_VISIBLE_DEVICES=4,5,6,7 ACCELERATE_LOG_LEVEL=info \
