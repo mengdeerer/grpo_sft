@@ -1360,8 +1360,10 @@ class GRPOTrainer(Trainer):
             self.num_generations, dim=0
         )
         advantages = rewards - mean_grouped_rewards
-        if self.scale_rewards:
-            advantages = advantages / (std_grouped_rewards + 1e-4)
+        #去除标准差，避免优势过大
+        # if self.scale_rewards:
+        #     advantages = advantages / (std_grouped_rewards + 1e-4)
+        
 
         # 修改solution的优势值为对应prompt的三个completion中的最大值
         if self.model.training:
@@ -1544,23 +1546,10 @@ class GRPOTrainer(Trainer):
         if self.beta != 0.0:
             per_token_loss = per_token_loss + self.beta * per_token_kl
 
-        if self.loss_type == "grpo":
-            loss = (
-                (per_token_loss * completion_mask).sum(-1)
-                / completion_mask.sum(-1).clamp(min=1.0)
-            ).mean()
-        elif self.loss_type == "bnpo":
-            loss = (
-                per_token_loss * completion_mask
-            ).sum() / completion_mask.sum().clamp(min=1.0)
-        elif self.loss_type == "dr_grpo":
-            loss = (per_token_loss * completion_mask).sum() / (
+        loss=(per_token_loss * completion_mask).sum() / (
                 per_token_loss.size(0) * self.max_completion_length
             )
-        else:
-            raise ValueError(f"Unknown loss type: {self.loss_type}")
-
-        # Log the metrics
+               # Log the metrics
         mode = "train" if self.model.training else "eval"
 
         if self.beta != 0.0:
